@@ -1,14 +1,14 @@
-use influxdb2::models::{data_point::DataPointBuilder, DataPoint};
+use futures::stream::StreamExt;
+use influxdb2::models::DataPoint;
+use mqtt::Message;
 use paho_mqtt as mqtt;
 use std::{process, time::Duration};
-use futures::stream::StreamExt;
 
-use config::Config;
+use config::{Config, MqttConfig};
 
 use serde::Deserialize;
 
 mod config;
-
 
 trait Error {}
 
@@ -17,32 +17,73 @@ struct TempSensorReading {
     pub humidity: f64,
     pub pressure: f64,
     pub temperature: f64,
-    pub battery: Option<u64>,
-    pub linkquality: Option<u64>,
-    pub voltage: Option<u64>
+    pub battery: Option<i64>,
+    pub linkquality: Option<i64>,
+    pub voltage: Option<i64>,
+}
+
+fn to_data_point(msg: &Message, config: &MqttConfig) -> DataPoint {
+    let topic = config
+        .topics
+        .iter()
+        .find(|topic| topic.name == msg.topic())
+        .expect(format!("Unexpected topic: {}", msg.topic()).as_str());
+
+    let reading_res = serde_json::from_str::<TempSensorReading>(&msg.payload_str());
+    println!("msg:{}, parsed as {:?}", msg, reading_res);
+
+    let reading = reading_res.unwrap();
+
+    let builder = DataPoint::builder(topic.measurement.clone())
+        .field("temperature", reading.temperature)
+        .field("humidity", reading.humidity)
+        .field("pressure", reading.pressure);
+
+    let builder = [
+        ("battery", reading.battery),
+        ("linkquality", reading.linkquality),
+        ("voltage", reading.voltage),
+    ]
+    .iter()
+    .fold(builder, |builder, (name, value)| {
+        if let Some(rv) = value {
+            builder.field(*name, *rv)
+        } else {
+            builder
+        }
+    });
+
+    topic
+        .tags
+        .iter()
+        .fold(builder, |builder, (name, value)| builder.tag(name, value))
+        .build()
+        .unwrap()
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Influxdb2
-    
-    let config = Config::from_file("./config.toml").expect("Couldn't load config");
-    
-    let influx_client = influxdb2::Client::new(config.influxdb2.host, config.influxdb2.org, config.influxdb2.token);
 
-    
+    let config = Config::from_file("./config.toml").expect("Couldn't load config");
+
+    let influx_client = influxdb2::Client::new(
+        config.influxdb2.host,
+        config.influxdb2.org,
+        config.influxdb2.token,
+    );
     // MQTT
-    
+
     let create_opts = mqtt::CreateOptionsBuilder::new()
-        .server_uri(config.mqtt.host)
-        .client_id("rust_async_subscribe")
+        .server_uri(config.mqtt.host.clone())
+        .client_id(config.mqtt.client_id.clone())
         .finalize();
-    
+
     let mut cli = mqtt::AsyncClient::new(create_opts).unwrap_or_else(|e| {
         println!("Error creating the client: {:?}", e);
         process::exit(1);
     });
-    
+
     // Get message stream before connecting.
     let mut strm = cli.get_stream(25);
 
@@ -60,8 +101,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Connecting to the MQTT server...");
     cli.connect(conn_opts).await?;
 
-    println!("Subscribing to topics: {:?}", config.mqtt.topics);
-    cli.subscribe_many(&config.mqtt.topics, &[1]).await?;
+    let subscriptions = config
+        .mqtt
+        .topics
+        .iter()
+        .map(|topic| topic.name.clone())
+        .collect::<Vec<_>>();
+
+    println!("Subscribing to topics: {:?}", subscriptions);
+    cli.subscribe_many(
+        &subscriptions,
+        &subscriptions.iter().map(|_| 1i32).collect::<Vec<_>>(),
+    )
+    .await?;
 
     // Just loop on incoming messages.
     println!("Waiting for messages...");
@@ -73,23 +125,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     while let Some(msg_opt) = strm.next().await {
         if let Some(msg) = msg_opt {
-            let reading_res = serde_json::from_str::<TempSensorReading>(&msg.payload_str());
-            println!("msg:{}, parsed as {:?}", msg,reading_res);
-            
-            let reading = reading_res.unwrap();
-            
-            let points = vec![
-                DataPoint::builder("sensor-reading")
-                    .tag("location", "gabor-office")
-                    .tag("sensor", "temperature")
-                    .field("temperature", reading.temperature)
-                    .build()
-                    .unwrap()
-            ];
-            
-            influx_client.write(&config.influxdb2.bucket, futures::stream::iter(points)).await.unwrap();
-        }
-        else {
+            let points = vec![to_data_point(&msg, &config.mqtt)];
+
+            influx_client
+                .write(&config.influxdb2.bucket, futures::stream::iter(points))
+                .await
+                .unwrap();
+        } else {
             // A "None" means we were disconnected. Try to reconnect...
             println!("Lost connection. Attempting reconnect.");
             while let Err(err) = cli.reconnect().await {
