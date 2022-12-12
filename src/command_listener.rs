@@ -1,5 +1,1 @@
-
-trait CommandListener {
-    
-}
-
+trait CommandListener {}

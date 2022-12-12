@@ -1,7 +1,8 @@
-use std::time::Duration;
+use std::{process, time::Duration};
 
 use async_trait::async_trait;
 use futures::StreamExt;
+use influxdb2::RequestError;
 use mqtt::AsyncClient;
 use paho_mqtt as mqtt;
 
@@ -9,6 +10,7 @@ pub use paho_mqtt::Message;
 
 use crate::config::MqttConfig;
 
+#[derive(Debug)]
 pub struct Error {}
 
 impl From<mqtt::Error> for Error {
@@ -17,25 +19,53 @@ impl From<mqtt::Error> for Error {
     }
 }
 
+impl From<RequestError> for Error {
+    fn from(_: RequestError) -> Self {
+        todo!()
+    }
+}
+
 #[async_trait]
 pub trait MqttSubscriber {
-    async fn consume<H: MqttMessageHandler + std::marker::Send + std::marker::Sync>(self, handler: H) -> Result<(), Error>;
+    async fn consume<H: MqttMessageHandler + std::marker::Send + std::marker::Sync>(
+        &mut self,
+        handler: &H,
+    ) -> Result<(), Error>;
 }
 
 pub struct MqttClientSubscriber {
     client: AsyncClient,
-    config: MqttConfig
+    config: MqttConfig,
 }
 
 impl MqttClientSubscriber {
-    pub fn new(config: &MqttConfig) -> Self {
-        todo!();
+    pub fn new(config: MqttConfig) -> Self {
+        let create_opts = mqtt::CreateOptionsBuilder::new()
+            .server_uri(config.host.clone())
+            .client_id(config.client_id.clone())
+            .finalize();
+
+        let client = AsyncClient::new(create_opts).unwrap_or_else(|e| {
+            println!("Error creating the client: {:?}", e);
+            process::exit(1);
+        });
+
+        MqttClientSubscriber { client, config }
+    }
+}
+
+impl Drop for MqttClientSubscriber {
+    fn drop(&mut self) {
+        self.client.disconnect(None);
     }
 }
 
 #[async_trait]
 impl MqttSubscriber for MqttClientSubscriber {
-    async fn consume<H: MqttMessageHandler + std::marker::Send + std::marker::Sync>(self, handler: H) -> Result<(), Error> {
+    async fn consume<H: MqttMessageHandler + std::marker::Send + std::marker::Sync>(
+        &mut self,
+        handler: &H,
+    ) -> Result<(), Error> {
         // Get message stream before connecting.
         let mut strm = self.client.get_stream(25);
 
@@ -65,7 +95,7 @@ impl MqttSubscriber for MqttClientSubscriber {
 
         // Just loop on incoming messages.
         println!("Waiting for messages...");
-    
+
         // release AppState lock
         // drop(st);
 
@@ -78,10 +108,10 @@ impl MqttSubscriber for MqttClientSubscriber {
             // let st = state.lock().await;
             if let Some(msg) = msg_opt {
                 // let points = vec![to_data_point(&msg, &st.config.mqtt)];
-                
-                let result = handler.handle(msg);
-                
-                result.await;
+
+                let result = handler.handle(msg, &self.config);
+
+                result.await.unwrap();
 
                 // st.influxdb_client
                 //     .write(&st.config.influxdb2.bucket, futures::stream::iter(points))
@@ -96,7 +126,7 @@ impl MqttSubscriber for MqttClientSubscriber {
                 }
             }
         }
-        
+
         Ok(())
     }
 }
@@ -111,6 +141,5 @@ fn topic_subscriptions(config: &MqttConfig) -> Vec<String> {
 
 #[async_trait]
 pub trait MqttMessageHandler {
-    async fn handle(&self, msg: mqtt::Message) -> Result<(), Error>;
+    async fn handle(&self, msg: mqtt::Message, mqtt_config: &MqttConfig) -> Result<(), Error>;
 }
-

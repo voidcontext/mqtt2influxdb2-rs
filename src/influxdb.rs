@@ -1,20 +1,38 @@
-use influxdb2::models::DataPoint;
 use async_trait::async_trait;
+use influxdb2::{models::DataPoint, Client};
 
-use crate::{mqtt::{self, MqttMessageHandler, Error}, config::MqttConfig, TempSensorReading};
+use crate::{
+    config::{Influxdb2Config, MqttConfig},
+    mqtt::{self, Error, MqttMessageHandler},
+    TempSensorReading,
+};
 
-pub struct Influxdb2Writer {}
+pub struct Influxdb2Writer {
+    config: Influxdb2Config,
+    client: Client,
+}
 
 impl Influxdb2Writer {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(config: Influxdb2Config) -> Self {
+        let client = influxdb2::Client::new(
+            config.host.clone(),
+            config.org.clone(),
+            config.token.clone(),
+        );
+        Self { client, config }
     }
 }
 
 #[async_trait]
 impl MqttMessageHandler for Influxdb2Writer {
-    async fn handle(&self, msg: mqtt::Message) -> Result<(), Error> {
-        todo!()
+    async fn handle(&self, msg: mqtt::Message, mqtt_config: &MqttConfig) -> Result<(), Error> {
+        self.client
+            .write(
+                &self.config.bucket,
+                futures::stream::iter([to_data_point(&msg, mqtt_config)]),
+            )
+            .await
+            .map_err(Error::from)
     }
 }
 
