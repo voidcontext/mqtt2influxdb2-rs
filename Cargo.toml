@@ -33,7 +33,7 @@ futures = "0.3.14"
 # rusqlite = { version = "0.28.0", features = ["bundled"] }
 
 async-mutex = "1.4.0"
-# async-trait = "0.1.56"
+async-trait = "0.1.56"
 # urlencoding = "2.1.2"
 
 # scraper = "0.13.0"

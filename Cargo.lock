@@ -891,6 +891,7 @@ name = "mqtt2influxdb2"
 version = "0.1.0"
 dependencies = [
  "async-mutex",
+ "async-trait",
  "clap",
  "futures",
  "influxdb2",
