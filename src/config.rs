@@ -7,7 +7,7 @@ pub struct Config {
     pub mqtt: MqttConfig,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Influxdb2Config {
     pub host: String,
     pub org: String,
@@ -15,14 +15,14 @@ pub struct Influxdb2Config {
     pub bucket: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct MqttConfig {
     pub host: String,
     pub client_id: String,
     pub topics: Vec<Topic>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Topic {
     pub name: String,
     pub measurement: String,

@@ -19,7 +19,7 @@ impl Influxdb2Writer {
             config.org.clone(),
             config.token.clone(),
         );
-        Self { client, config }
+        Self { config, client }
     }
 }
 
@@ -36,7 +36,7 @@ impl MqttMessageHandler for Influxdb2Writer {
     }
 }
 
-pub fn to_data_point(msg: &mqtt::Message, config: &MqttConfig) -> DataPoint {
+fn to_data_point(msg: &mqtt::Message, config: &MqttConfig) -> DataPoint {
     let topic = config
         .topics
         .iter()
