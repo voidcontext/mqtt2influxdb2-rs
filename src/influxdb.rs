@@ -2,18 +2,18 @@ use async_trait::async_trait;
 use influxdb2::{models::DataPoint, Client};
 
 use crate::{
-    config::{Influxdb2Config, MqttConfig},
-    mqtt::{self, Error, MqttMessageHandler},
+    config::{Influxdb, Mqtt},
+    mqtt::{self, Error, MessageHandler},
     TempSensorReading,
 };
 
-pub struct Influxdb2Writer {
-    config: Influxdb2Config,
+pub struct Writer {
+    config: Influxdb,
     client: Client,
 }
 
-impl Influxdb2Writer {
-    pub fn new(config: Influxdb2Config) -> Self {
+impl Writer {
+    pub fn new(config: Influxdb) -> Self {
         let client = influxdb2::Client::new(
             config.host.clone(),
             config.org.clone(),
@@ -24,8 +24,8 @@ impl Influxdb2Writer {
 }
 
 #[async_trait]
-impl MqttMessageHandler for Influxdb2Writer {
-    async fn handle(&self, msg: mqtt::Message, mqtt_config: &MqttConfig) -> Result<(), Error> {
+impl MessageHandler for Writer {
+    async fn handle(&self, msg: mqtt::Message, mqtt_config: &Mqtt) -> Result<(), Error> {
         self.client
             .write(
                 &self.config.bucket,
@@ -36,12 +36,12 @@ impl MqttMessageHandler for Influxdb2Writer {
     }
 }
 
-fn to_data_point(msg: &mqtt::Message, config: &MqttConfig) -> DataPoint {
+fn to_data_point(msg: &mqtt::Message, config: &Mqtt) -> DataPoint {
     let topic = config
         .topics
         .iter()
         .find(|topic| topic.name == msg.topic())
-        .expect(format!("Unexpected topic: {}", msg.topic()).as_str());
+        .unwrap_or_else(|| panic!("Unexpected topic: {}", msg.topic()));
 
     let reading_res = serde_json::from_str::<TempSensorReading>(&msg.payload_str());
     println!("msg:{}, parsed as {:?}", msg, reading_res);

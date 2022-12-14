@@ -11,7 +11,7 @@ use paho_mqtt as mqtt;
 
 pub use paho_mqtt::Message;
 
-use crate::config::MqttConfig;
+use crate::config::Mqtt;
 
 #[derive(Debug)]
 pub struct Error {}
@@ -29,21 +29,21 @@ impl From<RequestError> for Error {
 }
 
 #[async_trait]
-pub trait MqttSubscriber {
-    async fn consume<H: MqttMessageHandler + Send + Sync>(
+pub trait Subscriber {
+    async fn consume<H: MessageHandler + Send + Sync>(
         &mut self,
         handler: &H,
         abort_registration: AbortRegistration,
     ) -> Result<(), Error>;
 }
 
-pub struct MqttClientSubscriber {
+pub struct ClientSubscriber {
     client: AsyncClient,
-    config: MqttConfig,
+    config: Mqtt,
 }
 
-impl MqttClientSubscriber {
-    pub fn new(config: MqttConfig) -> Self {
+impl ClientSubscriber {
+    pub fn new(config: Mqtt) -> Self {
         let create_opts = mqtt::CreateOptionsBuilder::new()
             .server_uri(config.host.clone())
             .client_id(config.client_id.clone())
@@ -54,19 +54,19 @@ impl MqttClientSubscriber {
             process::exit(1);
         });
 
-        MqttClientSubscriber { client, config }
+        ClientSubscriber { client, config }
     }
 }
 
-impl Drop for MqttClientSubscriber {
+impl Drop for ClientSubscriber {
     fn drop(&mut self) {
         self.client.disconnect(None);
     }
 }
 
 #[async_trait]
-impl MqttSubscriber for MqttClientSubscriber {
-    async fn consume<H: MqttMessageHandler + Send + Sync>(
+impl Subscriber for ClientSubscriber {
+    async fn consume<H: MessageHandler + Send + Sync>(
         &mut self,
         handler: &H,
         abort_registration: AbortRegistration,
@@ -135,7 +135,7 @@ impl MqttSubscriber for MqttClientSubscriber {
     }
 }
 
-fn topic_subscriptions(config: &MqttConfig) -> Vec<String> {
+fn topic_subscriptions(config: &Mqtt) -> Vec<String> {
     config
         .topics
         .iter()
@@ -144,6 +144,6 @@ fn topic_subscriptions(config: &MqttConfig) -> Vec<String> {
 }
 
 #[async_trait]
-pub trait MqttMessageHandler {
-    async fn handle(&self, msg: mqtt::Message, mqtt_config: &MqttConfig) -> Result<(), Error>;
+pub trait MessageHandler {
+    async fn handle(&self, msg: mqtt::Message, mqtt_config: &Mqtt) -> Result<(), Error>;
 }

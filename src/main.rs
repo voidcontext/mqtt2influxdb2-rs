@@ -5,15 +5,15 @@ use futures::future::AbortHandle;
 use config::Config;
 
 use serde::Deserialize;
+use signal_hook::consts::{SIGHUP, SIGINT, SIGQUIT, SIGTERM};
 use tokio::sync::mpsc::{self, Sender};
 
 use crate::{
-    influxdb::Influxdb2Writer,
-    mqtt::{MqttClientSubscriber, MqttSubscriber},
+    influxdb::Writer,
+    mqtt::{ClientSubscriber, Subscriber},
 };
 
 use futures::stream::StreamExt;
-use signal_hook::consts::signal::*;
 use signal_hook_tokio::Signals;
 
 mod command_listener;
@@ -37,8 +37,8 @@ fn spawn_consumer(config: Config) -> AbortHandle {
     println!("Spawning consumer...");
     let (abort_handle, abort_registration) = AbortHandle::new_pair();
 
-    let mut mqtt_subscriber = MqttClientSubscriber::new(config.mqtt.clone());
-    let mqtt_message_handler = Influxdb2Writer::new(config.influxdb2);
+    let mut mqtt_subscriber = ClientSubscriber::new(config.mqtt.clone());
+    let mqtt_message_handler = Writer::new(config.influxdb2);
 
     tokio::spawn(async move {
         mqtt_subscriber

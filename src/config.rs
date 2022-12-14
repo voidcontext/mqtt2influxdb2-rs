@@ -3,12 +3,12 @@ use std::{collections::HashMap, fs};
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
-    pub influxdb2: Influxdb2Config,
-    pub mqtt: MqttConfig,
+    pub influxdb2: Influxdb,
+    pub mqtt: Mqtt,
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct Influxdb2Config {
+pub struct Influxdb {
     pub host: String,
     pub org: String,
     pub token: String,
@@ -16,7 +16,7 @@ pub struct Influxdb2Config {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct MqttConfig {
+pub struct Mqtt {
     pub host: String,
     pub client_id: String,
     pub topics: Vec<Topic>,
