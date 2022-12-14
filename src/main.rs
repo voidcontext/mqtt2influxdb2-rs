@@ -1,3 +1,5 @@
+use std::env;
+
 use futures::future::AbortHandle;
 
 use config::Config;
@@ -77,7 +79,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (tx, mut rx) = mpsc::channel::<Msg>(16);
 
     // Start the inital instance of the consumer
-    let initial_config = Config::from_file("./config.toml").expect("Couldn't load config");
+    let config_file = env::var("MQTT2INFLUXDB2_CONFIG_FILE")
+        .expect("The env var MQTT2INFLUXDB2_CONFIG_FILE must be set");
+    let initial_config = Config::from_file(&config_file).expect("Couldn't load config");
     let mut abort_handle = spawn_consumer(initial_config);
 
     // Set up signal handler
@@ -97,7 +101,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 abort_handle.abort();
 
                 // Re-read the config file
-                let config = Config::from_file("./config.toml").expect("Couldn't load config");
+                let config = Config::from_file(&config_file).expect("Couldn't load config");
 
                 println!("new config: {:?}", config);
 
