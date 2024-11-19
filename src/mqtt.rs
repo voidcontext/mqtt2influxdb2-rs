@@ -62,9 +62,8 @@ impl Subscriber for ClientSubscriber {
         // Define the set of options for the connection
         let lwt = mqtt::Message::new("test", "Async subscriber lost connection", mqtt::QOS_1);
 
-        let conn_opts = mqtt::ConnectOptionsBuilder::new()
+        let conn_opts = mqtt::ConnectOptionsBuilder::new_v3()
             .keep_alive_interval(Duration::from_secs(30))
-            .mqtt_version(mqtt::MQTT_VERSION_3_1_1)
             .clean_session(false)
             .will_message(lwt)
             .finalize();

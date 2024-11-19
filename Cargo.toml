@@ -6,23 +6,23 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tokio = { version = "1.20.0", features = ["full"] }
-log = "0.4"
-simple_logger = "2.0"
+tokio = { version = "1.41.0", features = ["full"] }
+log = "0.4.22"
+simple_logger = "5.0.0"
 
 anyhow = "1.0.93"
 
-signal-hook = "0.3.14"
+signal-hook = "0.3.17"
 signal-hook-tokio = {version = "0.3.1", features = ["futures-v0_3"]}
 
-influxdb2 = "0.3"
+influxdb2 = "0.5.2"
 
-paho-mqtt = {version = "0.11", default-features=false, features=["bundled"]}
-serde = "1.0"
-serde_derive = "1.0"
-serde_json = "1.0"
-toml = "0.5"
+paho-mqtt = {version = "0.12.5", default-features=false, features=["bundled"]}
+serde = "1.0.215"
+serde_derive = "1.0.215"
+serde_json = "1.0.133"
+toml = "0.8.19"
 
-futures = "0.3.14"
+futures = "0.3.31"
 
-async-trait = "0.1.56"
+async-trait = "0.1.83"
