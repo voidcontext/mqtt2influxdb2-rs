@@ -1,20 +1,16 @@
 use std::env;
 
-use futures::future::AbortHandle;
-
-use config::Config;
-
-use serde::Deserialize;
-use signal_hook::consts::{SIGHUP, SIGINT, SIGQUIT, SIGTERM};
-use tokio::sync::mpsc::{self, Sender};
-
 use crate::{
+    config::Config,
     influxdb::Writer,
     mqtt::{ClientSubscriber, Subscriber},
 };
-
+use futures::future::AbortHandle;
 use futures::stream::StreamExt;
+use serde::Deserialize;
+use signal_hook::consts::{SIGHUP, SIGINT, SIGQUIT, SIGTERM};
 use signal_hook_tokio::Signals;
+use tokio::sync::mpsc::{self, Sender};
 
 mod command_listener;
 mod config;

@@ -1,9 +1,10 @@
+use anyhow::Result;
 use async_trait::async_trait;
 use influxdb2::{models::DataPoint, Client};
 
 use crate::{
     config::{Influxdb, Mqtt},
-    mqtt::{self, Error, MessageHandler},
+    mqtt::{self, MessageHandler},
     TempSensorReading,
 };
 
@@ -25,14 +26,15 @@ impl Writer {
 
 #[async_trait]
 impl MessageHandler for Writer {
-    async fn handle(&self, msg: mqtt::Message, mqtt_config: &Mqtt) -> Result<(), Error> {
+    async fn handle(&self, msg: mqtt::Message, mqtt_config: &Mqtt) -> Result<()> {
         self.client
             .write(
                 &self.config.bucket,
                 futures::stream::iter([to_data_point(&msg, mqtt_config)]),
             )
-            .await
-            .map_err(Error::from)
+            .await?;
+
+        Ok(())
     }
 }
 

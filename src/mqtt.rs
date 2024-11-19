@@ -1,11 +1,11 @@
-use std::{process, time::Duration};
+use std::{iter, process, time::Duration};
 
+use anyhow::Result;
 use async_trait::async_trait;
 use futures::{
     future::{AbortRegistration, Abortable},
     StreamExt,
 };
-use influxdb2::RequestError;
 use mqtt::AsyncClient;
 use paho_mqtt as mqtt;
 
@@ -13,28 +13,13 @@ pub use paho_mqtt::Message;
 
 use crate::config::Mqtt;
 
-#[derive(Debug)]
-pub struct Error {}
-
-impl From<mqtt::Error> for Error {
-    fn from(_: mqtt::Error) -> Self {
-        todo!()
-    }
-}
-
-impl From<RequestError> for Error {
-    fn from(_: RequestError) -> Self {
-        todo!()
-    }
-}
-
 #[async_trait]
 pub trait Subscriber {
     async fn consume<H: MessageHandler + Send + Sync>(
         &mut self,
         handler: &H,
         abort_registration: AbortRegistration,
-    ) -> Result<(), Error>;
+    ) -> Result<()>;
 }
 
 pub struct ClientSubscriber {
@@ -70,7 +55,7 @@ impl Subscriber for ClientSubscriber {
         &mut self,
         handler: &H,
         abort_registration: AbortRegistration,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         // Get message stream before connecting.
         let strm = self.client.get_stream(25);
 
@@ -94,7 +79,9 @@ impl Subscriber for ClientSubscriber {
         self.client
             .subscribe_many(
                 &subscriptions,
-                &subscriptions.iter().map(|_| 1i32).collect::<Vec<_>>(),
+                &iter::repeat(1i32)
+                    .take(subscriptions.len())
+                    .collect::<Vec<_>>(),
             )
             .await?;
 
@@ -109,17 +96,12 @@ impl Subscriber for ClientSubscriber {
         let mut abortable_strm = Abortable::new(strm, abort_registration);
 
         while let Some(msg_opt) = abortable_strm.next().await {
-            // let st = state.lock().await;
             if let Some(msg) = msg_opt {
-                // let points = vec![to_data_point(&msg, &st.config.mqtt)];
-
                 let result = handler.handle(msg, &self.config);
 
-                result.await.unwrap();
-
-                // st.influxdb_client
-                //     .write(&st.config.influxdb2.bucket, futures::stream::iter(points))
-                //     .await
+                if let Err(err) = result.await {
+                    println!("error handling message: {err:?}");
+                }
             } else {
                 // A "None" means we were disconnected. Try to reconnect...
                 println!("Lost connection. Attempting reconnect.");
@@ -145,5 +127,5 @@ fn topic_subscriptions(config: &Mqtt) -> Vec<String> {
 
 #[async_trait]
 pub trait MessageHandler {
-    async fn handle(&self, msg: mqtt::Message, mqtt_config: &Mqtt) -> Result<(), Error>;
+    async fn handle(&self, msg: mqtt::Message, mqtt_config: &Mqtt) -> Result<()>;
 }
