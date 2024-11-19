@@ -44,7 +44,7 @@ fn to_data_point(msg: &mqtt::Message, config: &Mqtt) -> DataPoint {
         .unwrap_or_else(|| panic!("Unexpected topic: {}", msg.topic()));
 
     let reading_res = serde_json::from_str::<TempSensorReading>(&msg.payload_str());
-    println!("msg:{}, parsed as {:?}", msg, reading_res);
+    println!("msg:{msg}, parsed as {reading_res:?}");
 
     let reading = reading_res.unwrap();
 

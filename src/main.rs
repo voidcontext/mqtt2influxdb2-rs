@@ -85,7 +85,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut abort_handle = spawn_consumer(initial_config);
 
     // Set up signal handler
-    let signals = Signals::new(&[SIGHUP, SIGTERM, SIGINT, SIGQUIT])?;
+    let signals = Signals::new([SIGHUP, SIGTERM, SIGINT, SIGQUIT])?;
 
     let handle = signals.handle();
     let signals_task = tokio::spawn(signal_handler(signals, tx.clone()));
@@ -103,7 +103,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 // Re-read the config file
                 let config = Config::from_file(&config_file).expect("Couldn't load config");
 
-                println!("new config: {:?}", config);
+                println!("new config: {config:?}");
 
                 // Spwawn a new consumer, and update the abort handle
                 abort_handle = spawn_consumer(config);

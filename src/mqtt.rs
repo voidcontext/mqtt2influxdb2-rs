@@ -50,7 +50,7 @@ impl ClientSubscriber {
             .finalize();
 
         let client = AsyncClient::new(create_opts).unwrap_or_else(|e| {
-            println!("Error creating the client: {:?}", e);
+            println!("Error creating the client: {e:?}");
             process::exit(1);
         });
 
@@ -90,7 +90,7 @@ impl Subscriber for ClientSubscriber {
 
         let subscriptions = topic_subscriptions(&self.config);
 
-        println!("Subscribing to topics: {:?}", subscriptions);
+        println!("Subscribing to topics: {subscriptions:?}");
         self.client
             .subscribe_many(
                 &subscriptions,
@@ -124,7 +124,7 @@ impl Subscriber for ClientSubscriber {
                 // A "None" means we were disconnected. Try to reconnect...
                 println!("Lost connection. Attempting reconnect.");
                 while let Err(err) = self.client.reconnect().await {
-                    println!("Error reconnecting: {}", err);
+                    println!("Error reconnecting: {err}");
                     // For tokio use: tokio::time::delay_for()
                     tokio::time::sleep(Duration::from_millis(1000)).await;
                 }

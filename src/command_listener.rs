@@ -24,7 +24,7 @@ pub async fn listen(tx: Sender<Msg>) {
                     "shutdown" => {
                         tx.send(Msg::Shutdown).await.unwrap();
                     }
-                    str => println!("Unknown command: '{}'", str),
+                    str => println!("Unknown command: '{str}'"),
                 }
             }
             Err(_e) => { /* connection failed */ }
