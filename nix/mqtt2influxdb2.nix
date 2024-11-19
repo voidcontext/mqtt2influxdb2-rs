@@ -5,6 +5,8 @@
   cmake,
   darwin,
   libiconv,
+  pkg-config,
+  openssl,
   ...
 }: let
   src = ../.;
@@ -16,7 +18,13 @@
       ++ (lib.optionals stdenv.isDarwin [
         darwin.apple_sdk_11_0.frameworks.Security
         libiconv
-      ]);
+      ])
+      ++ (
+        lib.optionals stdenv.isLinux [
+          openssl
+          pkg-config
+        ]
+      );
   };
 
   cargoArtifacts = craneLib.buildDepsOnly commonArgs;
